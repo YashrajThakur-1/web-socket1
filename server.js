@@ -24,85 +24,49 @@ io.on("connection", (socket) => {
   console.log(`⚡: ${socket.id} user just connected!`);
 
   socket.on("createRoom", async (roomName) => {
-    try {
-      console.log(`🛠️: Creating room with name: ${roomName}`);
-      const newRoom = new ChatRoom({ name: roomName, messages: [] });
-      await newRoom.save();
-      console.log(`✅: Room ${roomName} created and saved to database`);
+    const newRoom = new ChatRoom({ name: roomName, messages: [] });
+    await newRoom.save();
 
-      const chatRooms = await ChatRoom.find();
-      console.log(`📋: Emitting rooms list: ${chatRooms}`);
-      io.emit("roomsList", chatRooms);
-    } catch (error) {
-      console.error(`❌: Error creating room: ${error.message}`);
-    }
+    const chatRooms = await ChatRoom.find();
+    io.emit("roomsList", chatRooms);
   });
 
   socket.on("findRoom", async (id) => {
-    try {
-      console.log(`🔍: Finding room with id: ${id}`);
-      const room = await ChatRoom.findById(id);
-      if (room) {
-        console.log(`🏠: Room found: ${room}`);
-        socket.emit("foundRoom", room.messages);
-      } else {
-        console.log(`❌: Room with id ${id} not found`);
-      }
-    } catch (error) {
-      console.error(`❌: Error finding room: ${error.message}`);
-    }
+    const room = await ChatRoom.findById(id);
+    socket.emit("foundRoom", room?.messages);
   });
 
   socket.on("newMessage", async (data) => {
-    try {
-      const { room_id, message, user, timestamp } = data;
-      console.log(
-        `💬: New message in room ${room_id}: ${message} by ${user} at ${timestamp.hour}:${timestamp.mins}`
-      );
-      const room = await ChatRoom.findById(room_id);
+    console.log("data>>>>>", data);
 
-      if (room) {
-        const newMessage = {
-          text: message,
-          user,
-          time: `${timestamp.hour}:${timestamp.mins}`,
-        };
+    const { room_id, message, user, timestamp } = data;
+    const room = await ChatRoom.findById(room_id);
+    console.log("Room>>>>>", room);
+    console.log("first>>>", message);
+    const newMessage = {
+      text: message,
+      user,
+      time: `${timestamp.hour}:${timestamp.mins}`,
+    };
 
-        room.messages.push(newMessage);
-        await room.save();
-        console.log(`✅: Message saved to room ${room_id}`);
+    room.messages.push(newMessage);
+    await room.save();
 
-        io.to(room.name).emit("roomMessage", newMessage);
-        console.log(`📤: Message emitted to room ${room.name}`);
+    io.to(room.name).emit("roomMessage", newMessage);
 
-        const chatRooms = await ChatRoom.find();
-        console.log(`📋: Emitting updated rooms list: ${chatRooms}`);
-        io.emit("roomsList", chatRooms);
-        console.log(`📤: Emitting messages of found room: ${room.messages}`);
-        socket.emit("foundRoom", room.messages);
-      } else {
-        console.log(`❌: Room with id ${room_id} not found`);
-      }
-    } catch (error) {
-      console.error(`❌: Error handling new message: ${error.message}`);
-    }
+    const chatRooms = await ChatRoom.find();
+    io.emit("roomsList", chatRooms);
+    socket.emit("foundRoom", room.messages);
   });
 
   socket.on("disconnect", () => {
-    console.log(`🔥: User ${socket.id} disconnected`);
+    console.log("🔥: A user disconnected");
   });
 });
 
 app.get("/api", async (req, res) => {
-  try {
-    console.log(`🌐: GET /api request received`);
-    const chatRooms = await ChatRoom.find();
-    console.log(`📋: Sending rooms list: ${chatRooms}`);
-    res.json(chatRooms);
-  } catch (error) {
-    console.error(`❌: Error fetching rooms: ${error.message}`);
-    res.status(500).send("Internal Server Error");
-  }
+  const chatRooms = await ChatRoom.find();
+  res.json(chatRooms);
 });
 
 server.listen(PORT, () => {

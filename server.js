@@ -21,53 +21,70 @@ app.use(express.json());
 app.use(cors());
 
 io.on("connection", (socket) => {
-  console.log(`⚡: ${socket.id} user just connected!`);
+  console.log(`User ${socket.id} just connected`);
 
   socket.on("createRoom", async (roomName) => {
-    const newRoom = new ChatRoom({ name: roomName, messages: [] });
-    await newRoom.save();
-    console.log("newRoom>>>>>>>>>>", newRoom);
+    try {
+      const newRoom = new ChatRoom({ name: roomName, messages: [] });
+      await newRoom.save();
+      console.log("New room saved:", newRoom);
 
-    const chatRooms = await ChatRoom.find();
-    io.emit("roomsList", chatRooms);
+      const chatRooms = await ChatRoom.find();
+      console.log("Chat rooms list:", chatRooms);
+      io.emit("roomsList", chatRooms);
+    } catch (error) {
+      console.error("Error creating room:", error);
+    }
   });
 
   socket.on("findRoom", async (id) => {
-    const room = await ChatRoom.findById(id);
-    socket.emit("foundRoom", room?.messages);
+    try {
+      const room = await ChatRoom.findById(id);
+      socket.emit("foundRoom", room?.messages);
+    } catch (error) {
+      console.error("Error finding room:", error);
+    }
   });
 
   socket.on("newMessage", async (data) => {
-    console.log("data>>>>>", data);
+    console.log("Data:", data);
+    try {
+      const { room_id, messages, user, timestamp } = data;
+      const room = await ChatRoom.findById(room_id);
+      console.log("Room:", room);
+      console.log("Messages:", messages);
+      const newMessage = {
+        text: messages,
+        user,
+        time: `${timestamp.hour}:${timestamp.mins}`,
+      };
 
-    const { room_id, messages, user, timestamp } = data;
-    const room = await ChatRoom.findById(room_id);
-    console.log("Room>>>>>", room);
-    console.log("first>>>", messages);
-    const newMessage = {
-      text: messages,
-      user,
-      time: `${timestamp.hour}:${timestamp.mins}`,
-    };
+      room.messages.push(newMessage);
+      await room.save();
 
-    room.messages.push(newMessage);
-    await room.save();
+      io.to(room.name).emit("roomMessage", newMessage);
 
-    io.to(room.name).emit("roomMessage", newMessage);
-
-    const chatRooms = await ChatRoom.find();
-    io.emit("roomsList", chatRooms);
-    socket.emit("foundRoom", room.messages);
+      const chatRooms = await ChatRoom.find();
+      io.emit("roomsList", chatRooms);
+      socket.emit("foundRoom", room.messages);
+    } catch (error) {
+      console.error("Error creating new message:", error);
+    }
   });
 
   socket.on("disconnect", () => {
-    console.log("🔥: A user disconnected");
+    console.log("A user disconnected");
   });
 });
 
 app.get("/api", async (req, res) => {
-  const chatRooms = await ChatRoom.find();
-  res.json(chatRooms);
+  try {
+    const chatRooms = await ChatRoom.find();
+    res.json(chatRooms);
+  } catch (error) {
+    console.error("Error getting chat rooms:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 server.listen(PORT, () => {

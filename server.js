@@ -26,6 +26,7 @@ io.on("connection", (socket) => {
   socket.on("createRoom", async (roomName) => {
     const newRoom = new ChatRoom({ name: roomName, messages: [] });
     await newRoom.save();
+    console.log("newRoom>>>>>>>>>>", newRoom);
 
     const chatRooms = await ChatRoom.find();
     io.emit("roomsList", chatRooms);
@@ -39,12 +40,12 @@ io.on("connection", (socket) => {
   socket.on("newMessage", async (data) => {
     console.log("data>>>>>", data);
 
-    const { room_id, message, user, timestamp } = data;
+    const { room_id, messages, user, timestamp } = data;
     const room = await ChatRoom.findById(room_id);
     console.log("Room>>>>>", room);
-    console.log("first>>>", message);
+    console.log("first>>>", messages);
     const newMessage = {
-      text: message,
+      text: messages,
       user,
       time: `${timestamp.hour}:${timestamp.mins}`,
     };
